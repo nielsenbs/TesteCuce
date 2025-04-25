@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Mapa de Doações – Aplicação Profissional</title>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+  <!-- Font Awesome para ícones -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chart.js -->
+  <style>
+    /* =========================================================================
+       VARIÁVEIS DE COR E ESTILOS BÁSICOS
+    ========================================================================= */
+    :root {
+      --dark-blue: #002445;       /* Azul escuro para o topo */
+      --primary-color: #003057;   /* Azul primário */
+      --secondary-color: #00509e; /* Azul secundário */
+      --accent-color: #cce0ff;    /* Azul clarinho */
+      --bg-color: #f4f6f8;        /* Fundo geral */
+      --white: #ffffff;
+      --gold: #A18547;            /* Dourado correto para os ícones */
+      --box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      --inf-offset: 40px;
+      --tab-color-1: #002445;     /* Azul mais escuro */
+      --tab-color-2: #003057;     /* Azul primário */
+      --tab-color-3: #00509e;     /* Azul secundário */
+      --tab-color-4: #0066cc;     /* Azul mais claro */
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      height: 100%;
+      font-family: 'Times New Roman', serif;
+      background: var(--bg-color);
+      color: #333;
+    }
+
+    /* =========================================================================
+       POP UP DE INSTRUÇÕES
+    ========================================================================= */
+    #instructionModal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .instruction-content {
+      background: var(--white);
+      padding: 30px 40px;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 600px;
+      text-align: center;
+      box-shadow: var(--box-shadow);
+      animation: popIn 0.6s ease-out;
+    }
+    @keyframes popIn {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .instruction-content h2 {
+      margin-bottom: 16px;
+      color: var(--dark-blue);
+      font-size: 28px;
+    }
+    .instruction-content p {
+      font-size: 18px;
+      margin-bottom: 20px;
+      color: var(--primary-color);
+      line-height: 1.5;
+    }
+    .instruction-content ul {
+      text-align: left;
+      margin-bottom: 20px;
+      line-height: 1.6;
+      padding-left: 20px;
+    }
+    .instruction-content li {
+      margin: 8px 0;
+      font-size: 16px;
+    }
+    #closeInstructionBtn {
+      background: var(--secondary-color);
+      color: var(--white);
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 18px;
+      transition: background 0.3s, box-shadow 0.3s;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+    }
+    #closeInstructionBtn:hover {
+      background: var(--primary-color);
+    }
+
+    /* =========================================================================
+       HEADER SUPERIOR (LOGO) – FIXO E MAIS ESPAÇOSO
+    ========================================================================= */
+    .top-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 140px;  /* Aumentado para 140px */
+      background: var(--dark-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      z-index: 999;
+    }
+    .top-header img {
+      height: 120px; /* Logo maior */
+      width: auto;
+    }
+
+    /* =========================================================================
+       HEADER BRANCO (MENU E BOTÕES) – FIXO, BOTÕES MAIORES COM RESPIRO
+    ========================================================================= */
+    .menu-bar {
+      position: fixed;
+      top: 140px;
+      left: 0; right: 0;
+      height: 80px;
+      background: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 30px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      z-index: 9999;
+    }
+    .menu-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--dark-blue);
+      font-weight: bold;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .menu-left i {
+      font-size: 28px;
+    }
+    .nav-right {
+      display: flex;
+      gap: 16px;
+    }
+    .nav-right button {
+      background: #e9ecef;
+      border: 1px solid #ccc;
+      color: var(--dark-blue);
+      font-size: 18px;
+      padding: 12px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s, box-shadow 0.3s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      text-decoration: none;
+    }
+    .nav-right button:hover {
+      background: #dce0e3;
+    }
+    .nav-right button.active {
+      background: #ced4da;
+      text-decoration: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+
+    /* =========================================================================
+       MAPA – Inicia abaixo dos dois headers (140px + 80px = 220px)
+    ========================================================================= */
+    #map {
+      position: absolute;
+      top: 220px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1;
+    }
+
+    /* =========================================================================
+       SIDEBARS LATERAIS – Reposicionados para ficarem mais próximos do centro
+    ========================================================================= */
+    .sidebar-left, .sidebar-right {
+      position: fixed;
+      top: 240px;
+      width: 320px;
+      max-height: calc(100% - 260px);
+      background: linear-gradient(135deg, #ffffff, #e0e0e0);
+      border: 2px solid #bbb;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: var(--box-shadow);
+      overflow-y: auto;
+      z-index: 1000;
+    }
+    .sidebar-left {
+      left: 40px; /* deslocado para a direita */
+    }
+    .sidebar-right {
+      right: 40px; /* deslocado para a esquerda */
+    }
+    /* Linha fina entre título e conteúdo */
+    .sidebar-left h2, .sidebar-right h2 {
+      font-size: 20px;
+      color: var(--dark-blue);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #ccc;  /* Linha fina */
+    }
+
+    /* =========================================================================
+       ELEMENTOS INTERNOS DOS BOXES – Foco no card de totais
+    ========================================================================= */
+    .totals-card {
+      display: flex;
+      justify-content: space-around;
+      background: #003057; /* Fundo azul, conforme print */
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+      font-size: 18px;
+      color: #fff; /* texto em branco */
+      font-weight: bold;
+    }
+    .totals-card div i {
+      margin-right: 5px;
+      color: var(--gold); /* cor dourada #A18547 */
+    }
+    .entities-list {
+      background: #f9f9f9;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .entities-list .entity-item {
+      padding: 8px;
+      font-size: 16px;
+      transition: background 0.2s;
+    }
+    .entities-list .entity-item:hover {
+      background: #eaeaea;
+    }
+    #showChartBtn {
+      background: #e9ecef;
+      color: var(--dark-blue);
+      border: 1px solid #ccc;
+      padding: 12px;
+      width: 100%;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s, box-shadow 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      text-decoration: none;
+    }
+    #showChartBtn:hover {
+      background: #dce0e3;
+    }
+
+    /* =========================================================================
+       SIDEBAR DIREITA – Reorganização: título, depois detalhes, depois lista
+    ========================================================================= */
+    #centralDetails {
+      margin-bottom: 15px;
+      font-size: 16px;
+      color: var(--dark-blue);
+      font-weight: bold;
+      padding: 10px;
+      background: #f9fafc;
+      border-radius: 6px;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+    }
+    #centraisList details {
+      margin-bottom: 10px;
+      padding: 8px;
+      background: #fafafa;
+      border-radius: 6px;
+      transition: background 0.3s;
+    }
+    #centraisList summary {
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 16px;
+      list-style: none;
+      outline: none;
+    }
+    #centraisList details[open] {
+      background: #f0f8ff;
+    }
+    .central-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s;
+    }
+    .central-item:hover {
+      background: #e0efff;
+    }
+    .central-item.selected {
+      background: #cce0ff;
+      font-weight: bold;
+    }
+
+    .school-item {
+      padding: 8px 12px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .school-item:hover {
+      background: #e0efff;
+    }
+    .school-item.selected {
+      background: #cce0ff;
+      font-weight: bold;
+    }
+
+    /* =========================================================================
+       MODAL DO GRÁFICO
+    ========================================================================= */
+    #chartModal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    #chartModal .modal-content {
+      background: var(--white);
+      padding: 20px;
+      border-radius: 8px;
+      width: 80%;
+      max-width: 800px;
+      position: relative;
+    }
+    #chartModal .close-modal {
+      position: absolute;
+      top: 10px; right: 10px;
+      background: var(--primary-color);
+      color: var(--white);
+      border: none;
+      border-radius: 4px;
+      padding: 8px 14px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    #chartModal .close-modal:hover {
+      background: #002a44;
+    }
+
+    /* =========================================================================
+       RESPONSIVIDADE
+    ========================================================================= */
+    @media (max-width: 768px) {
+      .top-header {
+        height: auto;
+        padding: 10px;
+      }
+      .top-header img {
+        height: 120px;
+      }
+      .menu-bar {
+        top: 0;
+        height: 60px;
+        padding: 0 20px;
+      }
+      #map {
+        top: 120px;
+      }
+      .sidebar-left, .sidebar-right {
+        top: 130px;
+        width: 90%;
+        left: 5%;
+        right: 5%;
+        max-height: 40%;
+      }
+      .menu-left {
+        font-size: 18px;
+      }
+      .menu-left i {
+        font-size: 24px;
+      }
+      .nav-right button {
+        font-size: 16px;
+        padding: 10px 16px;
+      }
+    }
+
+    #infographicsContainer {
+      position: absolute;
+      top: 220px; left: 0; right: 0; bottom: 0;
+      background: 
+        linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      display: none;
+      z-index: 2000;
+      overflow-y: auto;
+      padding: 20px 0;
+      position: relative;
+    }
+
+    #infographicsContainer::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 70%),
+        radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 70%);
+      opacity: 0.6;
+    }
+
+    #infographicsContainer .slides { 
+      position: relative; 
+      width: 1000px; 
+      height: 750px; 
+      margin: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      border-radius: 16px;
+      background: white;
+      z-index: 2;
+    }
+    .slide-wrapper {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 1000px;
+      height: 750px;
+    }
+    .nav-border {
+      position: absolute;
+      right: -25px;
+      width: 50px;
+      height: 150px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 5;
+      border-radius: 0 10px 10px 0;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+    }
+    .nav-border:hover {
+      filter: brightness(1.2);
+    }
+    .nav-border[data-index="0"] { 
+      top: 10%; 
+      background: var(--tab-color-1);
+    }
+    .nav-border[data-index="1"] { 
+      top: 32%; 
+      background: var(--tab-color-2);
+    }
+    .nav-border[data-index="2"] { 
+      top: 54%; 
+      background: var(--tab-color-3);
+    }
+    .nav-border[data-index="3"] { 
+      top: 76%; 
+      background: var(--tab-color-4);
+    }
+
+    .info-slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .info-slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .slide-wrapper[data-index="0"] { z-index:4; }
+    .slide-wrapper[data-index="1"] { z-index:3; }
+    .slide-wrapper[data-index="2"] { z-index:2; }
+    .slide-wrapper[data-index="3"] { z-index:1; }
+  </style>
+</head>
+<body>
+  <!-- POP UP DE INSTRUÇÕES -->
+  <div id="instructionModal">
+    <div class="instruction-content">
+      <h2>Bem-vindo ao Mapa Interativo com alguns dados das Centrais do Dízimo no Brasil e no mundo!</h2>
+      <ul>
+        <li>Clique no botão "Entidades Atendidas" para ver a quantidade de doações realizadas por cada Central do Dízimo, as entidades atendidas e o ano em que foram beneficiadas.</li>
+        <li>Clique no botão "Escolas Profissionalizantes" para ver as escolas doadas, sua localização, informações sobre o edifício e cursos oferecidos, além de suas capacidades de formação de alunos por ano.</li>
+        <li>Use o botão "Ver Gráficos" para visualizar a evolução histórica das doações.</li>
+        <li>Use o botão "Infográficos" para ver algumas informações pontuais sobre as doações realizadas.</li>
+        <li>Clique em qualquer espaço do mapa para voltar ao resumo global.</li>
+      </ul>
+      <button id="closeInstructionBtn">Vamos Lá!</button>
+    </div>
+  </div>
+
+  <!-- HEADER SUPERIOR (LOGO) FIXO -->
+  <div class="top-header">
+    <!-- Ajuste o caminho de "logo.png" conforme necessário -->
+    <img src="logo.png" alt="Logo PRÓ-VIDA">
+  </div>
+
+  <!-- HEADER BRANCO (MENU E BOTÕES) FIXO -->
+  <div class="menu-bar">
+    <div class="nav-right">
+      <button id="donationsBtn" class="active">Entidades Atendidas</button>
+      <button id="schoolsBtn">Escolas Profissionalizantes</button>
+      <button id="infographicsBtn">Infográficos</button>
+    </div>
+  </div>
+
+  <!-- MAPA -->
+  <div id="map"></div>
+
+  <!-- SIDEBAR ESQUERDA (DOAÇÕES) -->
+  <div class="sidebar-left" id="sidebarLeft">
+    <h2>Resumo de Doações</h2>
+    <div class="totals-card">
+      <div>
+        <i class="fas fa-hand-holding-heart"></i>
+        <strong id="totalDoacoes">0</strong><br>Doações
+      </div>
+    </div>
+    <div class="entities-list" id="entitiesList">
+      <div class="entity-item">
+        Selecione uma central para ver os detalhes ou visualize os totais agregados.
+      </div>
+    </div>
+    <button id="showChartBtn">
+      <i class="fas fa-chart-line"></i> Ver Gráfico
+    </button>
+  </div>
+
+  <!-- SIDEBAR DIREITA (DOAÇÕES) -->
+  <div class="sidebar-right" id="sidebarRight">
+    <h2>Centrais e Países</h2>
+    <div id="centralDetails">Nenhuma central selecionada</div>
+    <div id="centraisList"></div>
+  </div>
+
+  <!-- MODAL DO GRÁFICO -->
+  <div id="chartModal">
+    <div class="modal-content">
+      <button class="close-modal" id="closeChartModal">Fechar</button>
+      <canvas id="donationsChart"></canvas>
+    </div>
+  </div>
+
+  <!-- CONTAINER DE INFROGRÁFICOS -->
+  <div id="infographicsContainer">
+    <div class="slides">
+      <div class="slide-wrapper">
+        <div class="nav-border" data-index="0"></div>
+        <div class="info-slide" data-index="0">
+          <img src="info1.png" alt="Infográfico 1">
+        </div>
+      </div>
+      <div class="slide-wrapper">
+        <div class="nav-border" data-index="1"></div>
+        <div class="info-slide" data-index="1">
+          <img src="info2.png" alt="Infográfico 2">
+        </div>
+      </div>
+      <div class="slide-wrapper">
+        <div class="nav-border" data-index="2"></div>
+        <div class="info-slide" data-index="2">
+          <img src="info3.png" alt="Infográfico 3">
+        </div>
+      </div>
+      <div class="slide-wrapper">
+        <div class="nav-border" data-index="3"></div>
+        <div class="info-slide" data-index="3">
+          <img src="info4.png" alt="Infográfico 4">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEAFLET E CHART.JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    /* =========================================================================
+       Evento para fechar o pop-up de instruções
+    ========================================================================= */
+    document.getElementById('closeInstructionBtn').addEventListener('click', function() {
+      document.getElementById('instructionModal').style.display = 'none';
+      map.invalidateSize();
+    });
+
+    /* =========================================================================
+       Configuração do Mapa (sem linhas de grade)
+    ========================================================================= */
+    const maxBounds = L.latLngBounds([[-80, -180], [85, 60]]);
+    const centralZoom = 8;
+    var map = L.map('map', {
+      center: [20, -20],
+      zoom: 3,
+      minZoom: 3,
+      maxBounds: maxBounds,
+      maxBoundsViscosity: 1.0,
+      zoomControl: false
+    });
+    L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      {
+        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+        noWrap: true
+      }
+    ).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    let countryLayer = null;
+    function normalizeName(name) {
+      if (!name) return '';
+      return name.toLowerCase()
+                 .normalize('NFD')
+                 .replace(/[\u0300-\u036f]/g, '')
+                 .replace(/[^a-z]/g, '');
+    }
+
+    function loadCountryLayer(mode) {
+      if (countryLayer) {
+        map.removeLayer(countryLayer);
+      }
+      
+      fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
+        .then(response => response.json())
+        .then(data => {
+          countryLayer = L.geoJSON(data, {
+            style: function(feature) {
+              const countryName = normalizeName(feature.properties.name);
+              
+              // Modo Escolas: APENAS Brasil, todos os outros países sem preenchimento
+              if (mode === "schools") {
+                if (countryName === "brazil") {
+                  return { 
+                    fillColor: '#003057', 
+                    fillOpacity: 0.4, 
+                    color: "#ffffff", 
+                    weight: 1 
+                  };
+                }
+                return { 
+                  fillOpacity: 0, 
+                  weight: 0,
+                  color: "transparent"
+                };
+              }
+              
+              // Modo Doações: Todos os países participantes
+              if (mode === "donations") {
+                if (["argentina", "bolivia", "brazil", "chile", "italy", "portugal"].includes(countryName)) {
+                  return { 
+                    fillColor: '#023047', 
+                    fillOpacity: 0.5, 
+                    color: "#ffffff", 
+                    weight: 1 
+                  };
+                }
+              }
+              
+              // Caso padrão: sem pintura
+              return { 
+                fillOpacity: 0, 
+                weight: 0,
+                color: "transparent"
+              };
+            }
+          }).addTo(map);
+        });
+    }
+
+    /* =========================================================================
+       Dados de Exemplo para Doações e Escolas
+    ========================================================================= */
+    const donationsData = {
+      "doacoes": [
+        {
+          "country": "Argentina",
+          "central": "CENTRAL DEL DIEZMO PRÓ-VIDA - BUENOS AIRES",
+          "lat": -34.60, "lng": -58.38,
+          "totalDoacoes": 100, "pessoasAssistidas": 500,
+          "entidades": [
+            { "nome": "Entidade A1", "tipo": "Saúde", "quantidade": 15 },
+            { "nome": "Entidade A2", "tipo": "Educação", "quantidade": 10 }
+          ]
+        },
+        {
+          "country": "Argentina",
+          "central": "CENTRAL DEL DIEZMO PRÓ-VIDA - MENDOZA",
+          "lat": -32.89, "lng": -68.84,
+          "totalDoacoes": 80, "pessoasAssistidas": 400,
+          "entidades": [
+            { "nome": "Entidade M1", "tipo": "Construção", "quantidade": 8 },
+            { "nome": "Entidade M2", "tipo": "Saúde", "quantidade": 12 }
+          ]
+        },
+        {
+          "country": "Bolivia",
+          "central": "CENTRAL DEL DIEZMO PRÓ-VIDA – BOLIVIA",
+          "lat": -16.50, "lng": -68.15,
+          "totalDoacoes": 70, "pessoasAssistidas": 350,
+          "entidades": [
+            { "nome": "Entidade B1", "tipo": "Assistidos", "quantidade": 20 }
+          ]
+        },
+        {
+          "country": "Brazil",
+          "central": "CENTRAL GERAL DO DÍZIMO PRÓ-VIDA",
+          "lat": -15.79, "lng": -47.88,
+          "totalDoacoes": 250, "pessoasAssistidas": 1000,
+          "entidades": [
+            { "nome": "Entidade BR1", "tipo": "Educação", "quantidade": 30 },
+            { "nome": "Entidade BR2", "tipo": "Saúde", "quantidade": 25 }
+          ]
+        },
+        {
+          "country": "Brazil",
+          "central": "CENTRAL DO DÍZIMO PRÓ-VIDA - SÃO PAULO",
+          "lat": -23.55, "lng": -46.63,
+          "totalDoacoes": 300, "pessoasAssistidas": 1200,
+          "entidades": [
+            { "nome": "Entidade SP1", "tipo": "Assistidos", "quantidade": 50 },
+            { "nome": "Entidade SP2", "tipo": "Construção", "quantidade": 20 }
+          ]
+        },
+        {
+          "country": "Portugal",
+          "central": "CENTRAL DO DÍZIMO PRÓ-VIDA DE PORTUGAL",
+          "lat": 38.72, "lng": -9.13,
+          "totalDoacoes": 60, "pessoasAssistidas": 250,
+          "entidades": []
+        }
+      ]
+    };
+    const schoolsData = {
+      "escolas": [
+        {
+          "nome": "Escola Profissionalizante São Paulo",
+          "lat": -23.55,
+          "lng": -46.63,
+          "foto": "https://via.placeholder.com/300x200?text=Escola+SP",
+          "capacidade": 1500,
+          "introducao": "Esta escola é referência em formação técnica com cursos diversos."
+        }
+      ]
+    };
+
+    function aggregateSchoolsData() {
+      let total = 0;
+      schoolsData.escolas.forEach(school => {
+        total += school.capacidade;
+      });
+      return total;
+    }
+
+    /* =========================================================================
+       MARCADORES – Pin menor
+    ========================================================================= */
+    let markersLayer = L.layerGroup().addTo(map);
+    function clearMarkers() {
+      markersLayer.clearLayers();
+    }
+    const customIcon = L.icon({
+      iconUrl: 'pin.png',
+      iconSize: [20, 20],
+      iconAnchor: [10, 20],
+      popupAnchor: [0, -20]
+    });
+    const schoolIcon = L.icon({
+      iconUrl: 'pin.png',
+      iconSize: [20, 20],
+      iconAnchor: [10, 20],
+      popupAnchor: [0, -20]
+    });
+
+    /* =========================================================================
+       MODO DOAÇÕES
+    ========================================================================= */
+    const donationSidebarHTML = document.getElementById('sidebarLeft').innerHTML;
+    function updateCentralDetails(central) {
+      document.getElementById('centralDetails').innerText =
+        `País: ${central.country} | Central: ${central.central}`;
+      let entitiesHtml = "";
+      if (central.entidades && central.entidades.length > 0) {
+        central.entidades.forEach(ent => {
+          entitiesHtml += `<div class="entity-item">${ent.nome} – ${ent.tipo} (${ent.quantidade})</div>`;
+        });
+      } else {
+        entitiesHtml = `<div class="entity-item">Nenhuma entidade cadastrada.</div>`;
+      }
+      document.getElementById('entitiesList').innerHTML = entitiesHtml;
+      document.getElementById('totalDoacoes').innerText = central.totalDoacoes;
+      const centralItems = document.getElementsByClassName('central-item');
+      for (let item of centralItems) {
+        if (item.getAttribute('data-central') === central.central) {
+          item.classList.add('selected');
+        } else {
+          item.classList.remove('selected');
+        }
+      }
+      map.setView([central.lat, central.lng], centralZoom);
+    }
+    function resetGlobalView() {
+      map.setView([20, -20], 3);
+      const centralItems = document.getElementsByClassName('central-item');
+      for (let item of centralItems) {
+        item.classList.remove('selected');
+      }
+      document.getElementById('centralDetails').innerText = "Nenhuma central selecionada";
+      let totalDoacoes = 0;
+      let allEntities = [];
+      donationsData.doacoes.forEach(central => {
+        totalDoacoes += central.totalDoacoes;
+        if (central.entidades && central.entidades.length > 0) {
+          allEntities = allEntities.concat(central.entidades);
+        }
+      });
+      let entitiesHtml = "";
+      if (allEntities.length > 0) {
+        allEntities.forEach(ent => {
+          entitiesHtml += `<div class="entity-item">${ent.nome} – ${ent.tipo} (${ent.quantidade})</div>`;
+        });
+      } else {
+        entitiesHtml = `<div class="entity-item">Nenhuma entidade cadastrada.</div>`;
+      }
+      document.getElementById('entitiesList').innerHTML = entitiesHtml;
+      document.getElementById('totalDoacoes').innerText = totalDoacoes;
+    }
+    function populateCentraisList() {
+      const listContainer = document.getElementById('centraisList');
+      listContainer.innerHTML = "";
+      const groups = {};
+      donationsData.doacoes.forEach(central => {
+        if (!groups[central.country]) {
+          groups[central.country] = [];
+        }
+        groups[central.country].push(central);
+      });
+      for (let country in groups) {
+        const detailsElem = document.createElement('details');
+        detailsElem.open = false;
+        const summaryElem = document.createElement('summary');
+        summaryElem.textContent = country;
+        detailsElem.appendChild(summaryElem);
+        groups[country].forEach(central => {
+          const item = document.createElement('div');
+          item.className = "central-item";
+          item.setAttribute('data-central', central.central);
+          item.textContent = central.central;
+          item.addEventListener('click', function(e) {
+            e.stopPropagation();
+            updateCentralDetails(central);
+          });
+          detailsElem.appendChild(item);
+        });
+        listContainer.appendChild(detailsElem);
+      }
+    }
+    function loadDonationMarkers() {
+      clearMarkers();
+      donationsData.doacoes.forEach(central => {
+        const marker = L.marker([central.lat, central.lng], { icon: customIcon }).addTo(markersLayer);
+        marker.on('click', function(e) {
+          L.DomEvent.stopPropagation(e);
+          updateCentralDetails(central);
+        });
+      });
+    }
+    function initDonationsMode() {
+      document.getElementById('donationsBtn').classList.add('active');
+      document.getElementById('schoolsBtn').classList.remove('active');
+      document.getElementById('sidebarLeft').innerHTML = donationSidebarHTML;
+      document.getElementById('sidebarRight').innerHTML = `
+        <h2>Centrais e Países</h2>
+        <div id="centralDetails">Nenhuma central selecionada</div>
+        <div id="centraisList"></div>
+      `;
+      loadCountryLayer("donations");
+      populateCentraisList();
+      loadDonationMarkers();
+      resetGlobalView();
+      document.getElementById('showChartBtn').addEventListener('click', showChartModal);
+    }
+
+    /* =========================================================================
+       MODO ESCOLAS
+    ========================================================================= */
+    function updateSchoolDetails(school) {
+      const sidebarLeft = document.getElementById('sidebarLeft');
+      sidebarLeft.innerHTML = `
+        <h2>${school.nome}</h2>
+        <img src="${school.foto}" alt="${school.nome}" style="width:100%; border-radius:8px; margin-bottom:10px;">
+        <p><strong>Capacidade de Formandos:</strong> ${school.capacidade}</p>
+        <p>${school.introducao}</p>
+      `;
+    }
+    function resetSchoolView() {
+      const sidebarLeft = document.getElementById('sidebarLeft');
+      const totalFormandos = aggregateSchoolsData();
+      sidebarLeft.innerHTML = `
+        <h2><i class="fas fa-graduation-cap"></i> Total de Formandos</h2>
+        <div style="font-size:36px; font-weight:bold; color: var(--dark-blue); margin-bottom:15px;">
+          ${totalFormandos}
+        </div>
+        <p>Selecione uma escola para ver os detalhes.</p>
+      `;
+      const items = document.getElementsByClassName('school-item');
+      for (let item of items) {
+        item.classList.remove('selected');
+      }
+      map.setView([-15, -50], 4);
+    }
+    function populateSchoolsList() {
+      const listContainer = document.getElementById('schoolsList');
+      listContainer.innerHTML = "";
+      schoolsData.escolas.forEach(school => {
+        const item = document.createElement('div');
+        item.className = "school-item";
+        item.textContent = school.nome;
+        item.addEventListener('click', function(e) {
+          e.stopPropagation();
+          updateSchoolDetails(school);
+          map.setView([school.lat, school.lng], centralZoom);
+          const items = document.getElementsByClassName('school-item');
+          for (let el of items) {
+            el.classList.remove('selected');
+          }
+          item.classList.add('selected');
+        });
+        listContainer.appendChild(item);
+      });
+    }
+    function loadSchoolMarkers() {
+      clearMarkers();
+      schoolsData.escolas.forEach(school => {
+        const marker = L.marker([school.lat, school.lng], { icon: schoolIcon }).addTo(markersLayer);
+        marker.on('click', function(e) {
+          L.DomEvent.stopPropagation(e);
+          updateSchoolDetails(school);
+          map.setView([school.lat, school.lng], centralZoom);
+          const items = document.getElementsByClassName('school-item');
+          for (let el of items) {
+            if (el.textContent === school.nome) {
+              el.classList.add('selected');
+            } else {
+              el.classList.remove('selected');
+            }
+          }
+        });
+      });
+    }
+    function initSchoolsMode() {
+      document.getElementById('schoolsBtn').classList.add('active');
+      document.getElementById('donationsBtn').classList.remove('active');
+      clearMarkers();
+      document.getElementById('sidebarRight').innerHTML = `
+        <h2>Escolas Profissionalizantes</h2>
+        <div id="schoolsList"></div>
+      `;
+      
+      // Remove camada anterior se existir
+      if (countryLayer) {
+        map.removeLayer(countryLayer);
+        countryLayer = null;
+      }
+      
+      // Carrega apenas o Brasil
+      loadCountryLayer("schools");
+      loadSchoolMarkers();
+      resetSchoolView();
+    }
+
+    /* =========================================================================
+       Clique no mapa vazio: reseta a visão do modo atual
+    ========================================================================= */
+    map.on('click', function(e) {
+      if (document.getElementById('donationsBtn').classList.contains('active')) {
+        resetGlobalView();
+      } else {
+        resetSchoolView();
+      }
+    });
+
+    /* =========================================================================
+       GRÁFICO DE DOAÇÕES
+    ========================================================================= */
+    let donationsChart;
+    function showChartModal() {
+      document.getElementById('chartModal').style.display = 'flex';
+      if (donationsChart) { donationsChart.destroy(); }
+      const years = [1979, 1985, 1990, 1995, 2000, 2005, 2010, 2015, 2020, 2023];
+      const values = [50, 150, 300, 500, 700, 900, 1200, 1500, 1800, 2000];
+      const ctx = document.getElementById('donationsChart').getContext('2d');
+      donationsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: years,
+          datasets: [{
+            label: 'Doações',
+            data: values,
+            borderColor: "#003057",
+            backgroundColor: 'rgba(0, 48, 87, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: {
+              display: true,
+              text: 'Evolução das Doações ao Longo dos Anos',
+              font: { size: 18, weight: 'bold' },
+              color: "#003057"
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'Ano',
+                font: { size: 14 }
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: 'Quantidade de Doações',
+                font: { size: 14 }
+              },
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+    document.getElementById('closeChartModal').addEventListener('click', function() {
+      document.getElementById('chartModal').style.display = 'none';
+    });
+
+    /* =========================================================================
+       INFROGRÁFICOS
+    ========================================================================= */
+    const infoBtn = document.getElementById('infographicsBtn');
+    const infoContainer = document.getElementById('infographicsContainer');
+    const slides = Array.from(document.querySelectorAll('.info-slide'));
+
+    infoBtn.addEventListener('click', () => {
+      document.getElementById('donationsBtn').classList.remove('active');
+      document.getElementById('schoolsBtn').classList.remove('active');
+      infoBtn.classList.add('active');
+      document.getElementById('sidebarLeft').style.display = 'none';
+      document.getElementById('sidebarRight').style.display = 'none';
+      document.getElementById('map').style.display = 'none';
+      document.getElementById('infographicsContainer').style.display = 'block';
+    });
+
+    function bringToFront(index) {
+      slideWrappers.forEach((wrapper, i) => {
+        if (i === index) {
+          wrapper.style.zIndex = '4';
+          wrapper.style.opacity = '1';
+        } else {
+          wrapper.style.zIndex = '3';
+          wrapper.style.opacity = '0.5';
+        }
+      });
+    }
+
+    const slideWrappers = Array.from(document.querySelectorAll('.slide-wrapper'));
+    const navBorders = Array.from(document.querySelectorAll('.nav-border'));
+    
+    navBorders.forEach((border, index) => {
+      border.addEventListener('click', (e) => {
+        e.stopPropagation();
+        bringToFront(index);
+      });
+    });
+
+    map.on('click', () => {
+      if (infoContainer.style.display === 'block') {
+        infoContainer.style.display = 'none';
+        initDonationsMode();
+        document.getElementById('sidebarLeft').style.display = '';
+        document.getElementById('sidebarRight').style.display = '';
+      }
+    });
+
+    /* =========================================================================
+       EVENTOS DOS BOTÕES DO MENU
+    ========================================================================= */
+    document.getElementById('donationsBtn').addEventListener('click', () => {
+      // Remove classes ativas de todos os botões
+      document.getElementById('donationsBtn').classList.add('active');
+      document.getElementById('schoolsBtn').classList.remove('active');
+      document.getElementById('infographicsBtn').classList.remove('active');
+      
+      // Esconde infográficos
+      document.getElementById('infographicsContainer').style.display = 'none';
+      
+      // Mostra elementos do mapa
+      document.getElementById('map').style.display = '';
+      document.getElementById('sidebarLeft').style.display = '';
+      document.getElementById('sidebarRight').style.display = '';
+      
+      // Inicializa modo doações
+      initDonationsMode();
+      
+      // Força atualização do mapa
+      map.invalidateSize();
+      loadCountryLayer("donations");
+      loadDonationMarkers();
+    });
+
+    document.getElementById('schoolsBtn').addEventListener('click', () => {
+      // Remove classes ativas de todos os botões
+      document.getElementById('donationsBtn').classList.remove('active');
+      document.getElementById('schoolsBtn').classList.add('active');
+      document.getElementById('infographicsBtn').classList.remove('active');
+      
+      // Esconde infográficos
+      document.getElementById('infographicsContainer').style.display = 'none';
+      
+      // Mostra elementos do mapa
+      document.getElementById('map').style.display = '';
+      document.getElementById('sidebarLeft').style.display = '';
+      document.getElementById('sidebarRight').style.display = '';
+      
+      // Remove todas as camadas existentes
+      if (countryLayer) {
+        map.removeLayer(countryLayer);
+        countryLayer = null;
+      }
+      markersLayer.clearLayers();
+      
+      // Reinicializa o mapa
+      map.setView([-15, -50], 4);
+      
+      // Inicializa modo escolas
+      initSchoolsMode();
+      
+      // Força atualização do mapa
+      map.invalidateSize();
+    });
+
+    infoBtn.addEventListener('click', () => {
+      // Remove classes ativas de todos os botões
+      document.getElementById('donationsBtn').classList.remove('active');
+      document.getElementById('schoolsBtn').classList.remove('active');
+      document.getElementById('infographicsBtn').classList.add('active');
+      
+      // Esconde elementos do mapa
+      document.getElementById('map').style.display = 'none';
+      document.getElementById('sidebarLeft').style.display = 'none';
+      document.getElementById('sidebarRight').style.display = 'none';
+      
+      // Mostra infográficos
+      document.getElementById('infographicsContainer').style.display = 'block';
+    });
+
+    // Inicializa o modo de doações por padrão
+    initDonationsMode();
+    map.invalidateSize();
+    loadCountryLayer("donations");
+    loadDonationMarkers();
+  </script>
+</body>
+</html>
